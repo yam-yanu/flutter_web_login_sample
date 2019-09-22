@@ -1,111 +1,230 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_web_login_sample/provider.dart';
+import 'package:flutter_web_login_sample/validators.dart';
+import 'package:flutter_web_login_sample/auth.dart' as WebAuth;
+import 'package:firebase/firebase.dart';
 
-void main() => runApp(MyApp());
+
+void main() async {
+  // TODO なんとか秘匿情報がでないようにする
+  initializeApp(
+    apiKey: '',
+    databaseURL: '',
+    projectId: '',
+    storageBucket: '',
+  );
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
+    return Provider(
+      auth: WebAuth.Auth(),
+      child: MaterialApp(
+        title: 'Flutter Demo',
+        theme: ThemeData.dark(),
+        home: MyHomePage(),
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  _MyHomePageState createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
+class MyHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final WebAuth.Auth auth = Provider.of(context).auth;
+    return StreamBuilder<String>(
+      stream: auth.onAuthStateChanged,
+      builder: (context, AsyncSnapshot<String> snapshot) {
+        if (snapshot.connectionState == ConnectionState.active) {
+          final bool loggedIn = snapshot.hasData;
+          if (loggedIn == true) {
+            return HomePage();
+          } else {
+            return LoginPage();
+          }
+        }
+        return CircularProgressIndicator();
+      },
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text('Welcome Page'),
+        actions: <Widget>[
+          FlatButton(
+            child: Text("Sign Out"),
+            onPressed: () async {
+              try {
+                WebAuth.Auth auth = Provider.of(context).auth;
+                await auth.signOut();
+              } catch (e) {
+                print(e);
+              }
+            },
+          )
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.display1,
-            ),
-          ],
+      body: Container(
+        child: Center(
+          child: Text('Welcome'),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+}
+
+class LoginPage extends StatefulWidget {
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final formKey = GlobalKey<FormState>();
+
+  String _email, _password;
+  FormType _formType = FormType.login;
+
+  bool validate() {
+    final form = formKey.currentState;
+    form.save();
+    if (form.validate()) {
+      form.save();
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  void submit() async {
+    if (validate()) {
+      try {
+        final auth = Provider.of(context).auth;
+        if (_formType == FormType.login) {
+          String userId = await auth.signInWithEmailAndPassword(
+            _email,
+            _password,
+          );
+
+          print('Signed in $userId');
+        } else {
+          String userId = await auth.createUserWithEmailAndPassword(
+            _email,
+            _password,
+          );
+
+          print('Registered in $userId');
+        }
+      } catch (e) {
+        print(e);
+      }
+    }
+  }
+
+  void switchFormState(String state) {
+    formKey.currentState.reset();
+
+    if (state == 'register') {
+      setState(() {
+        _formType = FormType.register;
+      });
+    } else {
+      setState(() {
+        _formType = FormType.login;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Form Page'),
+      ),
+      resizeToAvoidBottomPadding: false,
+      body: Center(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: buildInputs() + buildButtons(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> buildInputs() {
+    return [
+      TextFormField(
+        validator: EmailValidator.validate,
+        decoration: InputDecoration(labelText: 'Email'),
+        onSaved: (value) => _email = value,
+      ),
+      TextFormField(
+        validator: PasswordValidator.validate,
+        decoration: InputDecoration(labelText: 'Password'),
+        obscureText: true,
+        onSaved: (value) => _password = value,
+      ),
+    ];
+  }
+
+  List<Widget> buildButtons() {
+    if (_formType == FormType.login) {
+      return [
+        RaisedButton(
+          child: Text('Login'),
+          color: Colors.blueAccent,
+          onPressed: submit,
+        ),
+        FlatButton(
+          child: Text('Register Account'),
+          color: Colors.teal,
+          onPressed: () {
+            switchFormState('register');
+          },
+        ),
+        Divider(
+          height: 50.0,
+        ),
+        FlatButton(
+          child: Text("Sign in with Google"),
+          color: Colors.lightGreen,
+          onPressed: () async {
+            try {
+              final _auth = Provider.of(context).auth;
+              final id = await _auth.signInWithGoogle();
+              print('signed in with google $id');
+            } catch (e) {
+              print(e);
+            }
+          },
+        ),
+      ];
+    } else {
+      return [
+        RaisedButton(
+          child: Text('Create Account'),
+          color: Colors.blueAccent,
+          onPressed: submit,
+        ),
+        FlatButton(
+          child: Text('Go to Login'),
+          color: Colors.teal,
+          onPressed: () {
+            switchFormState('login');
+          },
+        )
+      ];
+    }
   }
 }
