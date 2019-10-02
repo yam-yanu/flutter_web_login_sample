@@ -1,5 +1,4 @@
 import 'package:firebase/firebase.dart' as Firebase;
-import 'package:google_sign_in/google_sign_in.dart';
 
 abstract class BaseAuth {
   Stream<String> get onAuthStateChanged;
@@ -14,12 +13,16 @@ abstract class BaseAuth {
 
   Future<String> currentUser();
   Future<void> signOut();
-  Future<String> signInWithGoogle();
+  Future signInWithGoogle();
+  Future linkWithGoogle();
+  Future signInWithGithub();
+  Future linkWithGithub();
 }
 
 class Auth implements BaseAuth {
   final Firebase.Auth _firebaseAuth = Firebase.auth();
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final Firebase.GoogleAuthProvider _googleAuthProvider = Firebase.GoogleAuthProvider();
+  final Firebase.GithubAuthProvider _githubAuthProvider = Firebase.GithubAuthProvider();
 
   @override
   Stream<String> get onAuthStateChanged => _firebaseAuth.onAuthStateChanged.map(
@@ -50,14 +53,39 @@ class Auth implements BaseAuth {
   }
 
   @override
-  Future<String> signInWithGoogle() async {
-    final GoogleSignInAccount account = await _googleSignIn.signIn();
-    final GoogleSignInAuthentication _auth = await account.authentication;
-    final Firebase.AuthCredential credential = Firebase.GoogleAuthProvider.credential(
-      _auth.idToken,
-      _auth.accessToken,
-    );
-    return (await _firebaseAuth.signInWithCredential(credential)).uid;
+  Future signInWithGoogle() async {
+    return _firebaseAuth.signInWithPopup(_googleAuthProvider)
+      .then((Firebase.UserCredential userCredential) {
+        userCredential.user.linkWithPopup(_googleAuthProvider);
+      });
+  }
+
+  @override
+  Future linkWithGoogle() async {
+    Firebase.User currentUser = Firebase.auth().currentUser;
+    currentUser.linkWithPopup(_googleAuthProvider).then((result) {
+      print(result);
+    }).catchError((e) {
+      print(e);
+    });
+  }
+
+  @override
+  Future signInWithGithub() async {
+    return _firebaseAuth.signInWithPopup(_githubAuthProvider)
+        .then((Firebase.UserCredential userCredential) {
+      userCredential.user.linkWithPopup(_githubAuthProvider);
+    });
+  }
+
+  @override
+  Future linkWithGithub() async {
+    Firebase.User currentUser = Firebase.auth().currentUser;
+    currentUser.linkWithPopup(_githubAuthProvider).then((result) {
+      print(result);
+    }).catchError((e) {
+      print(e);
+    });
   }
 
   @override

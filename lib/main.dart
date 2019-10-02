@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_web_login_sample/provider.dart';
 import 'package:flutter_web_login_sample/validators.dart';
 import 'package:flutter_web_login_sample/auth.dart' as WebAuth;
@@ -8,10 +9,12 @@ import 'package:firebase/firebase.dart';
 void main() async {
   // TODO なんとか秘匿情報がでないようにする
   initializeApp(
-    apiKey: '',
-    databaseURL: '',
-    projectId: '',
-    storageBucket: '',
+    apiKey: "",
+    authDomain: "",
+    databaseURL: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
   );
   runApp(MyApp());
 }
@@ -23,7 +26,7 @@ class MyApp extends StatelessWidget {
       auth: WebAuth.Auth(),
       child: MaterialApp(
         title: 'Flutter Demo',
-        theme: ThemeData.dark(),
+        theme: ThemeData.light(),
         home: MyHomePage(),
       ),
     );
@@ -73,7 +76,42 @@ class HomePage extends StatelessWidget {
       ),
       body: Container(
         child: Center(
-          child: Text('Welcome'),
+          child: Center(
+            child: Form(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FlatButton(
+                    child: Text("link with Google"),
+                    color: Colors.blue,
+                    onPressed: () async {
+                      try {
+                        final _auth = Provider.of(context).auth;
+                        await _auth.linkWithGoogle();
+                      } catch (e) {
+                        print(e);
+                      }
+                    },
+                  ),
+                  FlatButton(
+                    child: Text("link with Github"),
+                    color: Colors.black,
+                    textColor: Colors.white,
+                    onPressed: () async {
+                      try {
+                        final _auth = Provider.of(context).auth;
+                        await _auth.linkWithGithub();
+                      } catch (e) {
+                        print(e);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -155,15 +193,16 @@ class _LoginPageState extends State<LoginPage> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: buildInputs() + buildButtons(),
+            children: buildEmailAndPassword() + buildProviders(),
           ),
         ),
       ),
     );
   }
 
-  List<Widget> buildInputs() {
+  List<Widget> buildEmailAndPassword() {
     return [
+      Text('Use Email & Password'),
       TextFormField(
         validator: EmailValidator.validate,
         decoration: InputDecoration(labelText: 'Email'),
@@ -175,35 +214,53 @@ class _LoginPageState extends State<LoginPage> {
         obscureText: true,
         onSaved: (value) => _password = value,
       ),
+      Divider(
+        height: 30.0,
+      ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: <Widget>[
+          FlatButton(
+            child: Text('Login'),
+            color: Colors.blueAccent,
+            onPressed: submit,
+          ),
+          FlatButton(
+            child: Text('Register Account'),
+            color: Colors.teal,
+            onPressed: () {
+              switchFormState('register');
+            },
+          ),
+        ],
+      ),
     ];
   }
 
-  List<Widget> buildButtons() {
+  List<Widget> buildProviders() {
     if (_formType == FormType.login) {
       return [
-        RaisedButton(
-          child: Text('Login'),
-          color: Colors.blueAccent,
-          onPressed: submit,
-        ),
-        FlatButton(
-          child: Text('Register Account'),
-          color: Colors.teal,
-          onPressed: () {
-            switchFormState('register');
-          },
-        ),
-        Divider(
-          height: 50.0,
-        ),
+        Text('Use Providers'),
         FlatButton(
           child: Text("Sign in with Google"),
-          color: Colors.lightGreen,
+          color: Colors.blue,
           onPressed: () async {
             try {
               final _auth = Provider.of(context).auth;
-              final id = await _auth.signInWithGoogle();
-              print('signed in with google $id');
+              await _auth.signInWithGoogle();
+            } catch (e) {
+              print(e);
+            }
+          },
+        ),
+        FlatButton(
+          child: Text("Sign in with Github"),
+          color: Colors.black,
+          textColor: Colors.white,
+          onPressed: () async {
+            try {
+              final _auth = Provider.of(context).auth;
+              await _auth.signInWithGithub();
             } catch (e) {
               print(e);
             }
